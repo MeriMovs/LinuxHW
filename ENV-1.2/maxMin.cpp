@@ -5,12 +5,12 @@
 
 int main(int argc, char** argv){
 	int a = std::atoi(argv[1]);
-    	int b = std::atoi(argv[2]);
-    	int c = std::atoi(argv[3]);
+    int b = std::atoi(argv[2]);
+    int c = std::atoi(argv[3]);
 
-    	int min = std::min({a, b, c});
-    	int max = std::max({a, b, c});
-    	std::cout << "max: " << max << std::endl;
+    int min = std::min({a, b, c});
+    int max = std::max({a, b, c});
+    std::cout << "max: " << max << std::endl;
 	std::cout << "min: " << min << std::endl;
 	return 0;
 }
