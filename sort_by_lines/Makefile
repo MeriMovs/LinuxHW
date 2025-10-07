@@ -1,4 +1,4 @@
-all: main
+all: clean main
 
 main: main.o
 	g++ main.o -o main
