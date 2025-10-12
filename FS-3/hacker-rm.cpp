@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <iostream>
 
 int main(int argc, char** argv) {
 	if(argc != 2) {
@@ -10,7 +11,7 @@ int main(int argc, char** argv) {
     }
 
 //-- open  --
-	int fd = open(argv[1], O_RDONLY);
+	int fd = open(argv[1], O_RDWR);
     if (fd == -1) {
         perror("Ошибка при открытии файла");
         exit(EXIT_FAILURE);
@@ -24,6 +25,8 @@ int main(int argc, char** argv) {
     for (int i = 0; i < 4096; i++) {
         bf_write[i] = '\0';
     }
+    std::cout << "-";
+
 
 // -- calc file size --
     ssize_t bytes_read = read(fd, bf_read, size);
@@ -33,18 +36,20 @@ int main(int argc, char** argv) {
         file_size += bytes_read;
     }
 
-    close(fd);
+// --------------------
 
 
-// -- костыль = reopen / zero --
-
-    fd = open(argv[1], O_WRONLY, 0644);
-    if (fd == -1) {
-        perror("Ошибка при открытии файла");
-        exit(EXIT_FAILURE);
+    std::cout << "-";
+    lseek(fd, 0, SEEK_SET);
+    while(file_size != 0) {
+        if(size > file_size) {
+            size = file_size;
+        }
+        int bytes_wr = write(fd, bf_write, size);
+        file_size -= bytes_wr;
     }
 
-    write(fd, bf_write, file_size);
+
 
     close(fd);
     return 0;
