@@ -2,7 +2,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <iostream>
 
 int main(int argc, char** argv) {
 	if(argc != 2) {
@@ -25,7 +24,6 @@ int main(int argc, char** argv) {
     for (int i = 0; i < 4096; i++) {
         bf_write[i] = '\0';
     }
-    std::cout << "-";
 
 
 // -- calc file size --
@@ -38,8 +36,6 @@ int main(int argc, char** argv) {
 
 // --------------------
 
-
-    std::cout << "-";
     lseek(fd, 0, SEEK_SET);
     while(file_size != 0) {
         if(size > file_size) {
@@ -48,8 +44,6 @@ int main(int argc, char** argv) {
         int bytes_wr = write(fd, bf_write, size);
         file_size -= bytes_wr;
     }
-
-
 
     close(fd);
     return 0;
