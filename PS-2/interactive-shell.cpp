@@ -2,10 +2,12 @@
 #include <string>
 #include <vector>
 #include <sstream>
-#include <unistd.h>
 #include <sys/wait.h>
 #include <string>
 #include <regex>
+#include <fcntl.h>
+#include <unistd.h>
+#include <stdlib.h>
 
 std::vector<std::string> split(const std::string& str, char d) {
     std::vector<std::string> res;
@@ -24,21 +26,23 @@ std::vector<std::string> split_by_str(const std::string& str, const std::string&
     size_t pos = str.find(d);
     
     if (pos == std::string::npos) {
-        // Delimiter not found, return the whole string
         res.push_back(str);
     } else {
-        // Split into two parts at first delimiter
         res.push_back(str.substr(0, pos));
         res.push_back(str.substr(pos + d.length()));
     }
-    
     return res;
 }
 
-int run(std::string cmd) {
+int run(std::string cmd, int output_fd = 1) {
     const char* char_cmd = cmd.data();
     int pid = fork();
     if (pid == 0) {
+        if (output_fd != 1) {
+            dup2(output_fd, 1);
+            close(output_fd);
+        }
+
         std::vector<std::string> args = split(cmd, ' ');
         std::vector<char*> argv;
         for (const auto& arg : args) {
@@ -82,9 +86,23 @@ int foo(std::string& cmnd) {
             foo(args[0]);
             foo(args[1]);
         } else if (cmnd.find(">>") != std::string::npos) {
-            
+            std::vector<std::string> args = split_by_str(cmnd, " >> ");
+            int fd = open(args[1].c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+            if (fd == -1) {
+                std::cerr << "Failed to open file for appending: \n";
+                exit(EXIT_FAILURE);
+            }
+            run(args[0], fd);
+            close(fd);
         } else if (cmnd.find('>') != std::string::npos) {
-            
+            std::vector<std::string> args = split_by_str(cmnd, " > ");
+            int fd = open(args[1].c_str(), O_WRONLY | O_CREAT, 0644);
+            if (fd == -1) {
+                std::cerr << "Failed to open file for appending: \n";
+                exit(EXIT_FAILURE);
+            }
+            run(args[0], fd);
+            close(fd);
         } else {
             return run(cmnd);
         }
@@ -93,17 +111,17 @@ int foo(std::string& cmnd) {
 }
 
 int main() {
-    std::string cmnd = "ls -lh && ls && echo aaa";
-    // std::cout << "> ";
-    // std::getline(std::cin, cmnd);
-    // while (cmnd != "exit") {
-    //     if (cmnd.empty()) { continue; }
+    std::string cmnd; // = "ls -lh && echo aaa >> a.txt; pwd; cat a.txt";
+    std::cout << "> ";
+    std::getline(std::cin, cmnd);
+    while (cmnd != "exit") {
+        if (cmnd.empty()) { continue; }
 
         foo(cmnd);
 
-    //     std::cout << "> ";
-    //     std::getline(std::cin, cmnd);
-    // }
+        std::cout << "> ";
+        std::getline(std::cin, cmnd);
+    }
 
     return 0;
 }
