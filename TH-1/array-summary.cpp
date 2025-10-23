@@ -23,7 +23,7 @@ void* t_sum(void* arg){
 }
 
 void sum(int n, int th_count) {
-    int arr[n];// = {1, 2, 3, 4, 5, 6 ,7, 8, 9, 10};
+    int arr[n];
 
     // - - -  random  - - -
     std::random_device rd;
