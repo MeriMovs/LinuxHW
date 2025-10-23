@@ -82,7 +82,7 @@ void sum(int n, int th_count) {
 
 int main(int argc, char** argv) {
     if (argc < 3) {
-        perror("Wrong args");
+        std::cerr << "Wrong args\n";
         exit(EXIT_FAILURE);
     }
 
