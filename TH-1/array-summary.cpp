@@ -1,6 +1,7 @@
 #include <iostream>
 #include <ctime>
 #include <random>
+#include <pthread.h>
 
 class P_class {
 public:
@@ -35,20 +36,19 @@ void sum(int n, int th_count) {
 
 
     P_class th_datas[th_count];
-    int chank = n / th_count;
+    int chunk = n / th_count;
 
     std::clock_t clock_start = std::clock();
 
     for (int i = 0; i < th_count; ++i) {
         th_datas[i].arr = arr;
-        th_datas[i].start = i*chank;
-        th_datas[i].end = (i+1)*chank;
+        th_datas[i].start = i*chunk;
+        th_datas[i].end = (i == th_count-1) ? n : (i+1)*chunk;
+
         int threadCreated = pthread_create(&th_datas[i].tid, NULL, t_sum, (void*) &th_datas[i]); 
         if(threadCreated != 0){
             std::cerr << "Could not create new thread" << std::endl;
-            return;
         }
-        
     }
 
     long int th_sum = 0;
@@ -75,13 +75,10 @@ void sum(int n, int th_count) {
 
     std::cout << "sum without threads took " << duration << " ms" << std::endl;
     std::cout << sum << "\n";
-
-
-
 }
 
 int main(int argc, char** argv) {
-    if (argc < 3) {
+    if (argc != 3) {
         std::cerr << "Wrong args\n";
         exit(EXIT_FAILURE);
     }
