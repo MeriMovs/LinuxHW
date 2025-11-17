@@ -1,5 +1,7 @@
 all: demo-application
 
+
+
 demo-application: demo-application.o lib_sch.so
 	g++ demo-application.o -o demo-application -L. -l_sch -lpthread
 

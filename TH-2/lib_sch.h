@@ -5,13 +5,6 @@
 #include <semaphore.h>
 #include <vector>
 
-// struct ThreadArgs {
-//     void (*user_func)(int);
-//     int arg;
-// };
-
-// void* thread_wrapper(void* void_args);
-
 class parallel_scheduler {
 public:
     parallel_scheduler(int _cap);
@@ -23,8 +16,5 @@ private:
     std::vector<pthread_t> tid_arr;
 };
 
-// extern sem_t sem;
-
-// int test(int in);
 
 #endif // PARALLEL_SCHEDULER_H
