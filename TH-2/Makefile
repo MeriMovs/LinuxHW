@@ -16,5 +16,5 @@ clean:
 lib_sch.so: lib_sch.cpp
 	g++ -fPIC -c lib_sch.cpp -o lib_sch.o
 	g++ -shared -o lib_sch.so lib_sch.o -lpthread
-	export LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH
+	export LD_LIBRARY_PATH=.:$(LD_LIBRARY_PATH)
 
