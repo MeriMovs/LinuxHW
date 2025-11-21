@@ -2,6 +2,7 @@
 #define PARALLEL_SCHEDULER_H
 
 #include <pthread.h>
+#include <queue>
 
 struct task {
     void (*func)(void*);
@@ -17,12 +18,13 @@ public:
 
 private:
     int cap;
-    int fill_ptr = 0;
-    int use_ptr = 0;
+
     int count = 0;
     int shutdown = 0;
 
-    struct task* buffer;
+    std::queue<struct task*> queue;
+
+
     pthread_t* threads;
 
     pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -33,7 +35,7 @@ private:
     struct task get();
 
     void* consumer(void* arg);
-    static void* consumer_entry(void* arg);
+    static void* execute(void* arg);
 };
 
 #endif

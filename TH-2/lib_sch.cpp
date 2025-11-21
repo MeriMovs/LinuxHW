@@ -1,13 +1,14 @@
 #include "lib_sch.h"
 #include <iostream>
 #include <cstdint>
+#include <queue>
 
 parallel_scheduler::parallel_scheduler(int _cap) : cap(_cap) {
-    buffer = new task[cap];
+    // buffer = new task[cap];
     threads = new pthread_t[cap];
 
     for (int i = 0; i < cap; ++i) {
-        pthread_create(&threads[i], nullptr, consumer_entry, this);
+        pthread_create(&threads[i], nullptr, execute, this);
     }
 }
 
@@ -21,7 +22,7 @@ parallel_scheduler::~parallel_scheduler() {
         pthread_join(threads[i], nullptr);
     }
 
-    delete[] buffer;
+    // delete[] buffer;
     delete[] threads;
 
     pthread_mutex_destroy(&mutex);
@@ -30,21 +31,23 @@ parallel_scheduler::~parallel_scheduler() {
 }
 
 void parallel_scheduler::put(const task& t) {
-    buffer[fill_ptr] = t;
-    fill_ptr = (fill_ptr + 1) % cap;
+    struct task* temp = new struct task;
+    temp->func = t.func;
+    temp->arg = t.arg;
+    queue.push(temp);
     count++;
 }
 
 task parallel_scheduler::get() {
-    task t = buffer[use_ptr];
-    use_ptr = (use_ptr + 1) % cap;
+    struct  task* t = queue.front();
+    queue.pop();
     count--;
-    return t;
+    return *t;
 }
 
 
 // -- нечто непонятное --
-void* parallel_scheduler::consumer_entry(void* arg) {
+void* parallel_scheduler::execute(void* arg) {
     return ((parallel_scheduler*)arg)->consumer(nullptr);
 }
 
