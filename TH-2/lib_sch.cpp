@@ -1,13 +1,15 @@
 #include "lib_sch.h"
 #include <iostream>
 #include <cstdint>
-#include <queue>
 
 parallel_scheduler::parallel_scheduler(int _cap) : cap(_cap) {
     threads = new pthread_t[cap];
 
     for (int i = 0; i < cap; ++i) {
-        pthread_create(&threads[i], nullptr, execute, this);
+        pthread_create(&threads[i], nullptr, [](void* arg) -> void* {
+        // -- телепорт "нечто непонятного"  --
+            return static_cast<parallel_scheduler*>(arg)->consumer(nullptr);
+        }, this);
     }
 }
 
@@ -24,11 +26,6 @@ parallel_scheduler::~parallel_scheduler() {
 
     pthread_mutex_destroy(&mutex);
     pthread_cond_destroy(&cond_newTask);
-}
-
-// -- нечто непонятное --
-void* parallel_scheduler::execute(void* arg) {
-    return ((parallel_scheduler*)arg)->consumer(nullptr);
 }
 
 void* parallel_scheduler::consumer(void*) {
