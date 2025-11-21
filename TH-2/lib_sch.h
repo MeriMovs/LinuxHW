@@ -28,8 +28,7 @@ private:
     pthread_t* threads;
 
     pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-    pthread_cond_t cond_empty = PTHREAD_COND_INITIALIZER;
-    pthread_cond_t cond_fill = PTHREAD_COND_INITIALIZER;
+    pthread_cond_t cond_newTask = PTHREAD_COND_INITIALIZER;
 
     void put(const struct task& t);
     struct task get();

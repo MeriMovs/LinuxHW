@@ -4,7 +4,6 @@
 #include <queue>
 
 parallel_scheduler::parallel_scheduler(int _cap) : cap(_cap) {
-    // buffer = new task[cap];
     threads = new pthread_t[cap];
 
     for (int i = 0; i < cap; ++i) {
@@ -15,19 +14,16 @@ parallel_scheduler::parallel_scheduler(int _cap) : cap(_cap) {
 parallel_scheduler::~parallel_scheduler() {
     pthread_mutex_lock(&mutex);
     shutdown = 1;
-    pthread_cond_broadcast(&cond_fill);
     pthread_mutex_unlock(&mutex);
 
     for (int i = 0; i < cap; ++i) {
         pthread_join(threads[i], nullptr);
     }
 
-    // delete[] buffer;
     delete[] threads;
 
     pthread_mutex_destroy(&mutex);
-    pthread_cond_destroy(&cond_empty);
-    pthread_cond_destroy(&cond_fill);
+    pthread_cond_destroy(&cond_newTask);
 }
 
 void parallel_scheduler::put(const task& t) {
@@ -56,7 +52,7 @@ void* parallel_scheduler::consumer(void*) {
         pthread_mutex_lock(&mutex);
 
         while (count == 0 && !shutdown)
-            pthread_cond_wait(&cond_fill, &mutex);
+            pthread_cond_wait(&cond_newTask, &mutex);
 
         if (count == 0 && shutdown) {
             pthread_mutex_unlock(&mutex);
@@ -64,7 +60,6 @@ void* parallel_scheduler::consumer(void*) {
         }
 
         task t = get();
-        pthread_cond_signal(&cond_empty);
         pthread_mutex_unlock(&mutex);
 
         t.func(t.arg);
@@ -77,10 +72,7 @@ void parallel_scheduler::run(void (*foo)(int), int arg) {
     t.arg = (void*)(uintptr_t)arg;
 
     pthread_mutex_lock(&mutex);
-    while (count == cap)
-        pthread_cond_wait(&cond_empty, &mutex);
-
     put(t);
-    pthread_cond_signal(&cond_fill);
+    pthread_cond_signal(&cond_newTask);
     pthread_mutex_unlock(&mutex);
 }
