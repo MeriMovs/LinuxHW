@@ -26,20 +26,6 @@ parallel_scheduler::~parallel_scheduler() {
     pthread_cond_destroy(&cond_newTask);
 }
 
-void parallel_scheduler::put(const task& t) {
-    struct task* temp = new struct task;
-    temp->func = t.func;
-    temp->arg = t.arg;
-    queue.push(temp);
-}
-
-task parallel_scheduler::get() {
-    struct  task* t = queue.front();
-    queue.pop();
-    return *t;
-}
-
-
 // -- нечто непонятное --
 void* parallel_scheduler::execute(void* arg) {
     return ((parallel_scheduler*)arg)->consumer(nullptr);
@@ -57,20 +43,23 @@ void* parallel_scheduler::consumer(void*) {
             return nullptr;
         }
 
-        task t = get();
+        task* t = queue.front();
+        queue.pop();
+
         pthread_mutex_unlock(&mutex);
 
-        t.func(t.arg);
+        t->func(t->arg);
     }
 }
 
 void parallel_scheduler::run(void (*foo)(int), int arg) {
-    task t;
-    t.func = (void(*)(void*))foo;
-    t.arg = (void*)(uintptr_t)arg;
+    task* t = new task;
+    t->func = reinterpret_cast<void(*)(void*)>(foo);
+    t->arg = reinterpret_cast<void*>(static_cast<intptr_t>(arg));
 
     pthread_mutex_lock(&mutex);
-    put(t);
+    queue.push(t);
+
     pthread_cond_signal(&cond_newTask);
     pthread_mutex_unlock(&mutex);
 }
