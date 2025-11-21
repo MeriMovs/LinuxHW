@@ -31,13 +31,11 @@ void parallel_scheduler::put(const task& t) {
     temp->func = t.func;
     temp->arg = t.arg;
     queue.push(temp);
-    count++;
 }
 
 task parallel_scheduler::get() {
     struct  task* t = queue.front();
     queue.pop();
-    count--;
     return *t;
 }
 
@@ -51,10 +49,10 @@ void* parallel_scheduler::consumer(void*) {
     while (true) {
         pthread_mutex_lock(&mutex);
 
-        while (count == 0 && !shutdown)
+        while (queue.empty() && !shutdown)
             pthread_cond_wait(&cond_newTask, &mutex);
 
-        if (count == 0 && shutdown) {
+        if (queue.empty() && shutdown) {
             pthread_mutex_unlock(&mutex);
             return nullptr;
         }

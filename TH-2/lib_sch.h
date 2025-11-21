@@ -19,7 +19,6 @@ public:
 private:
     int cap;
 
-    int count = 0;
     int shutdown = 0;
 
     std::queue<struct task*> queue;
