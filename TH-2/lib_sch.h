@@ -1,46 +1,39 @@
-// #ifndef PARALLEL_SCHEDULER_H
-// #define PARALLEL_SCHEDULER_H
+#ifndef PARALLEL_SCHEDULER_H
+#define PARALLEL_SCHEDULER_H
 
-// #include <pthread.h>
+#include <pthread.h>
 
-// struct task;
+struct task {
+    void (*func)(void*);
+    void* arg;
+};
 
-// class parallel_scheduler {
-// public:
-//     parallel_scheduler(int _cap);
-//     ~parallel_scheduler();
-//     void run(void (*foo)(int), int arg);
+class parallel_scheduler {
+public:
+    parallel_scheduler(int _cap);
+    ~parallel_scheduler();
 
-//     void put(struct task task);
-//     struct task get();
+    void run(void (*foo)(int), int arg);
 
-//     void* producer(void *arg);
-//     void* consumer();
+private:
+    int cap;
+    int fill_ptr = 0;
+    int use_ptr = 0;
+    int count = 0;
+    int shutdown = 0;
 
-//     static void* consumer_wrapper(void *arg);
+    struct task* buffer;
+    pthread_t* threads;
 
+    pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+    pthread_cond_t cond_empty = PTHREAD_COND_INITIALIZER;
+    pthread_cond_t cond_fill = PTHREAD_COND_INITIALIZER;
 
+    void put(const struct task& t);
+    struct task get();
 
+    void* consumer(void* arg);
+    static void* consumer_entry(void* arg);
+};
 
-
-// private:
-//     int cap;
-//     int fill_ptr = 0;
-//     int use_ptr = 0;
-//     int count = 0;
-//     int shutdown = 0;
-
-//     struct task *buffer;
-
-//     pthread_t *tid_arr;
-
-//     int* thread_ids;
-
-//     // std::vector<pthread_t> tid_arr;
-// };
-
-
-// #endif // PARALLEL_SCHEDULER_H
-
-
-
+#endif

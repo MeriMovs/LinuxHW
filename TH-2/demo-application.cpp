@@ -28,22 +28,9 @@ void foo3(int arg) {
 int main() {
     parallel_scheduler p_sch(2);
 
-    // correct
     p_sch.run(foo1, 50000);
-    // p_sch.run(foo2, 50000);
-    // p_sch.run(foo3, 50000);
+    p_sch.run(foo2, 50000);
+    p_sch.run(foo3, 50000);
 
-    // p_sch.run(foo1, 50000);
-    // p_sch.run(foo2, 50000);
-    // p_sch.run(foo3, 50000);
-
-    // // вперемешку
-    // p_sch.run(foo1, 50000);
-    // p_sch.run(foo2, 50000);
-    // p_sch.run(foo1, 50000);
-    // p_sch.run(foo2, 50000);
-
-
-    return 0;
+    return 0; 
 }
- 

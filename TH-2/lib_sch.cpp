@@ -1,115 +1,83 @@
-#include <iostream>
-#include <pthread.h>
-#include <semaphore.h>
-#include <vector>
 #include "lib_sch.h"
-#include <unistd.h>
+#include <iostream>
 #include <cstdint>
 
-struct task {
-    void (*func)(void*);
-    void *arg;
-};
-
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t empty = PTHREAD_COND_INITIALIZER;
-pthread_cond_t fill = PTHREAD_COND_INITIALIZER;
-
 parallel_scheduler::parallel_scheduler(int _cap) : cap(_cap) {
-    buffer = new struct task[cap];
-    tid_arr = new pthread_t[cap];
-    thread_ids = new int[cap];
+    buffer = new task[cap];
+    threads = new pthread_t[cap];
 
-	for(int i = 0; i < cap; ++i) {
-        thread_ids[i] = i;
-        pthread_create(&tid_arr[i], nullptr, consumer_wrapper, &thread_ids[i]);
+    for (int i = 0; i < cap; ++i) {
+        pthread_create(&threads[i], nullptr, consumer_entry, this);
     }
-	pthread_mutex_init(&mutex, nullptr);
-    pthread_cond_init(&empty, nullptr);
-	pthread_cond_init(&fill, nullptr);
 }
 
-parallel_scheduler::~parallel_scheduler() {	
-	for(int i = 0; i < cap; ++i) {
-        pthread_join(tid_arr[i], nullptr);
-    }
-	pthread_mutex_destroy(&mutex);
-    pthread_cond_destroy(&empty);
-	pthread_cond_destroy(&fill);
+parallel_scheduler::~parallel_scheduler() {
+    pthread_mutex_lock(&mutex);
+    shutdown = 1;
+    pthread_cond_broadcast(&cond_fill);
+    pthread_mutex_unlock(&mutex);
 
-    delete[] tid_arr;
+    for (int i = 0; i < cap; ++i) {
+        pthread_join(threads[i], nullptr);
+    }
+
     delete[] buffer;
-    delete[] thread_ids;
+    delete[] threads;
+
+    pthread_mutex_destroy(&mutex);
+    pthread_cond_destroy(&cond_empty);
+    pthread_cond_destroy(&cond_fill);
 }
 
-
-void parallel_scheduler::put(struct task task) {
-    buffer[fill_ptr] = task;
+void parallel_scheduler::put(const task& t) {
+    buffer[fill_ptr] = t;
     fill_ptr = (fill_ptr + 1) % cap;
     count++;
 }
 
-struct task parallel_scheduler::get() {
-    struct task task = buffer[use_ptr];
+task parallel_scheduler::get() {
+    task t = buffer[use_ptr];
     use_ptr = (use_ptr + 1) % cap;
     count--;
-    return task;
+    return t;
 }
 
-void* parallel_scheduler::producer(void *arg) {
-    struct task *arg_foo = (struct task*)arg;
-    
-    pthread_mutex_lock(&mutex);
-    
-    while (count == cap) {
-        pthread_cond_wait(&empty, &mutex);
-    }
-    
-    put(*arg_foo);
-    
-    pthread_cond_signal(&fill);
-    pthread_mutex_unlock(&mutex);
 
-    return nullptr;
+// -- нечто непонятное --
+void* parallel_scheduler::consumer_entry(void* arg) {
+    return ((parallel_scheduler*)arg)->consumer(nullptr);
 }
 
-// -- непонятно что и для чего -- //
-void* parallel_scheduler::consumer_wrapper(void *arg) {
-    parallel_scheduler *scheduler = (parallel_scheduler*)arg;
-    return scheduler->consumer();
-}
-//   ------------------------   //
-
-
-void* parallel_scheduler::consumer() {
+void* parallel_scheduler::consumer(void*) {
     while (true) {
         pthread_mutex_lock(&mutex);
-        
-        while (count == 0 && !shutdown) {
-            pthread_cond_wait(&fill, &mutex);
-        }
-        
+
+        while (count == 0 && !shutdown)
+            pthread_cond_wait(&cond_fill, &mutex);
+
         if (count == 0 && shutdown) {
             pthread_mutex_unlock(&mutex);
-            break;
+            return nullptr;
         }
-        
-        struct task task = get();
-        
-        pthread_cond_signal(&empty);
-        pthread_mutex_unlock(&mutex);
-        
-        task.func(task.arg);
-    }
 
-    return nullptr;
+        task t = get();
+        pthread_cond_signal(&cond_empty);
+        pthread_mutex_unlock(&mutex);
+
+        t.func(t.arg);
+    }
 }
 
-
 void parallel_scheduler::run(void (*foo)(int), int arg) {
-     struct task* t = new struct task;
-     t->func = (void (*)(void*))foo;
-     t->arg = (void*)(uintptr_t)arg;
+    task t;
+    t.func = (void(*)(void*))foo;
+    t.arg = (void*)(uintptr_t)arg;
 
-    producer(t);
+    pthread_mutex_lock(&mutex);
+    while (count == cap)
+        pthread_cond_wait(&cond_empty, &mutex);
+
+    put(t);
+    pthread_cond_signal(&cond_fill);
+    pthread_mutex_unlock(&mutex);
 }
