@@ -3,10 +3,10 @@
 
 #include <pthread.h>
 #include <queue>
+#include <functional>
 
 struct task {
-    void (*func)(void*);
-    void* arg;
+    std::function<void()> func;
 };
 
 class parallel_scheduler {
@@ -26,7 +26,7 @@ private:
     pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
     pthread_cond_t cond_new_task = PTHREAD_COND_INITIALIZER;
 
-    void* worker(void* arg);
+    static void* worker(void* arg);
 };
 
 #endif

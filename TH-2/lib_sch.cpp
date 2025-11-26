@@ -6,9 +6,7 @@ parallel_scheduler::parallel_scheduler(int _cap) : cap(_cap) {
     threads = new pthread_t[cap];
 
     for (int i = 0; i < cap; ++i) {
-        pthread_create(&threads[i], nullptr, [](void* arg) -> void* {
-            return static_cast<parallel_scheduler*>(arg)->worker(nullptr);
-        }, this);
+        pthread_create(&threads[i], nullptr, worker, this);
     }
 }
 
@@ -28,34 +26,34 @@ parallel_scheduler::~parallel_scheduler() {
     pthread_cond_destroy(&cond_new_task);
 }
 
-void* parallel_scheduler::worker(void*) {
-    task* t;
+void* parallel_scheduler::worker(void* arg) {
+    parallel_scheduler* scheduler = (parallel_scheduler*)(arg);
+    
     while (true) {
-        pthread_mutex_lock(&mutex);
+        pthread_mutex_lock(&scheduler->mutex);
 
-        while (queue.empty() && !shutdown)
-            pthread_cond_wait(&cond_new_task, &mutex);
+        while (scheduler->queue.empty() && !scheduler->shutdown)
+            pthread_cond_wait(&scheduler->cond_new_task, &scheduler->mutex);
 
-        if (queue.empty() && shutdown) {
-            pthread_mutex_unlock(&mutex);
+        if (scheduler->queue.empty() && scheduler->shutdown) {
+            pthread_mutex_unlock(&scheduler->mutex);
             return nullptr;
         }
 
-        t = queue.front();
-        queue.pop();
+        task* t = scheduler->queue.front();
+        scheduler->queue.pop();
 
-        pthread_mutex_unlock(&mutex);
+        pthread_mutex_unlock(&scheduler->mutex);
 
-        t->func(t->arg);
+        t->func();
 
+        delete t;
     }
-    delete t;
 }
 
 void parallel_scheduler::run(void (*foo)(int), int arg) {
     task* t = new task;
-    t->func = reinterpret_cast<void(*)(void*)>(foo);
-    t->arg = reinterpret_cast<void*>(static_cast<intptr_t>(arg));
+    t->func = [foo, arg]() { foo(arg); };
 
     pthread_mutex_lock(&mutex);
     queue.push(t);
