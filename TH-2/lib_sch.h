@@ -24,9 +24,9 @@ private:
     pthread_t* threads;
 
     pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-    pthread_cond_t cond_newTask = PTHREAD_COND_INITIALIZER;
+    pthread_cond_t cond_new_task = PTHREAD_COND_INITIALIZER;
 
-    void* consumer(void* arg);
+    void* worker(void* arg);
 };
 
 #endif

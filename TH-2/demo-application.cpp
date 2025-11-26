@@ -15,7 +15,7 @@ void foo2(int arg) {
         j++;
         arg--;
     }
-    std::cout << j << "\n" ;
+    std::cout << j  << "\n" ;
 }
 void foo3(int arg) {
     while(arg > 0) {
