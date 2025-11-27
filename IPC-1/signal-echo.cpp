@@ -7,16 +7,18 @@ void handler(int sig, siginfo_t* info, void* context) {
     struct passwd *pw = getpwuid(info->si_uid);
     const char* username = pw ? pw->pw_name : "unknown";
 
-    std::cout << "Received a SIGUSR1 signal from process [" << info->si_pid << "] executed by [" 
-              << info->si_uid << "] (" << username << ")." << std::endl;
+    std::string res = "Received a SIGUSR1 signal from process [" + std::to_string(info->si_pid) + "] executed by [" 
+              + std::to_string(info->si_uid) + "] (" + username + ").\n";
 
     ucontext_t *uc = (ucontext_t*)context;
     unsigned long eip = uc->uc_mcontext.gregs[REG_RIP];
     unsigned long eax = uc->uc_mcontext.gregs[REG_RAX];
     unsigned long ebx = uc->uc_mcontext.gregs[REG_RBX];
 
-    std::cout << "State of the context: EIP = [" << eip << "], EAX = [" << eax << "], EBX = [" << ebx << "]. \n";
+    res += "State of the context: EIP = [" + std::to_string(eip) + "], EAX = [" + std::to_string(eax) + "], EBX = [" 
+            + std::to_string(ebx) + "]. \n";
 
+    write(1, res.c_str(), res.size());
 }
 
 int main() {
