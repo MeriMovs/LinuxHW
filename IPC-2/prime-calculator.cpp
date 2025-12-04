@@ -4,6 +4,8 @@
 #include <vector>
 #include <sys/wait.h>
 
+#define buffSize 100
+
 bool checkIfPrime(int n) {
     if (n % 2 == 0 || n % 3 == 0) return false;
     for (int i = 5; i * i <= n; i += 6) {
@@ -46,9 +48,12 @@ int main() {
         std::vector<int> arr = {2, 3, 5, 7};
 
         while(true) {
-            char buff[20];
-            int rBytes = read(wrPipefd[0], buff, 20);
-            if(rBytes) {
+            char buff[buffSize];
+            int rBytes = read(wrPipefd[0], buff, buffSize);
+            if(rBytes == -1) {
+                std::cerr << "Failed to read\n";
+                exit(EXIT_FAILURE);
+            } if(rBytes) {
                 buff[rBytes] = '\0';
                 int n = std::atoi(buff);
 
@@ -62,6 +67,10 @@ int main() {
 
                 std::string res = std::to_string(arr[n-1]);
                 int wBytes = write(rwPipefd[1], res.c_str(), res.size());
+                if(wBytes == -1) {
+                    std::cerr << "Failed to write\n";
+                    exit(EXIT_FAILURE);
+                }
             } else {
                 break;
             }
@@ -76,7 +85,7 @@ int main() {
         std::string m;
 
         while(true){
-            char buff[20] ;
+            char buff[buffSize] ;
             std::cout << "[Parent] Please enter the number: ";
             std::cin >> m;
             if(m == "exit") {
@@ -84,12 +93,22 @@ int main() {
                 close(rwPipefd[0]);
                 wait(NULL);
                 break;
+            } else if(std::stoi(m) <= 0) {
+                std::cout << "Invalid num" << std::endl;
+                continue;
             }
             std::cout << "[Parent] Sending " << m << " to the child process..." << std::endl;
             std::cout << "[Parent] Waiting for the response from the child process...\n";
             int wBytes = write(wrPipefd[1], m.c_str(), m.size());
-            int rBytes = read(rwPipefd[0], buff, 20);
-            if (rBytes) {
+            if(wBytes == -1) {
+                std::cerr << "Failed to write\n";
+                exit(EXIT_FAILURE);
+            }
+            int rBytes = read(rwPipefd[0], buff, buffSize);
+            if(rBytes == -1) {
+                std::cerr << "Failed to read\n";
+                exit(EXIT_FAILURE);
+            } else if (rBytes) {
                 buff[rBytes] = '\0';
                 int res = std::atoi(buff);
                 std::cout << "[Parent] Received calculation result of prime(" << m << ") = " << res << "...\n\n";
