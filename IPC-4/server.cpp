@@ -1,117 +1,122 @@
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <unistd.h>
+#include <iostream>
+#include <string>
+#include <vector>
+#include <cstring>
 #include <pthread.h>
+#include <unistd.h>
+#include <arpa/inet.h>
 
-#define PORT 8080
-#define MAX_CLIENTS 10
+#define PORT 4004
+#define BUF_SIZE 1024
 
-int clients[MAX_CLIENTS];
-int client_count = 0;
-pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
+struct ClientConnection 
+{
+    int socket_fd;
+};
 
-void broadcast(char* message, int sender_fd) {
-    pthread_mutex_lock(&clients_mutex);
-    for(int i = 0; i < client_count; i++) {
-        if(clients[i] != sender_fd) {
-            send(clients[i], message, strlen(message), 0);
+std::vector<ClientConnection*> active_clients;
+pthread_mutex_t clients_list_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void send_to_all_clients(const std::string &txt, int s_socket = -1) 
+{
+    pthread_mutex_lock(&clients_list_mutex);
+    for (auto &client : active_clients) 
+    {
+        if (client->socket_fd != s_socket) 
+        {
+            send(client->socket_fd, txt.c_str(), txt.size(), 0);
         }
     }
-    pthread_mutex_unlock(&clients_mutex);
+    pthread_mutex_unlock(&clients_list_mutex);
 }
 
-void remove_client(int fd) {
-    pthread_mutex_lock(&clients_mutex);
-    for(int i = 0; i < client_count; i++) {
-        if(clients[i] == fd) {
-            for(int j = i; j < client_count - 1; j++) {
-                clients[j] = clients[j + 1];
-            }
-            client_count--;
+void register_new_client(ClientConnection *new_client) 
+{
+    pthread_mutex_lock(&clients_list_mutex);
+    active_clients.push_back(new_client);
+    pthread_mutex_unlock(&clients_list_mutex);
+}
+
+void unregister_client(int client_socket) 
+{
+    pthread_mutex_lock(&clients_list_mutex);
+    for (auto it = active_clients.begin(); it != active_clients.end(); ++it) 
+    {
+        if ((*it)->socket_fd == client_socket) 
+        {
+            delete *it;
+            active_clients.erase(it);
             break;
         }
     }
-    pthread_mutex_unlock(&clients_mutex);
+    pthread_mutex_unlock(&clients_list_mutex);
 }
 
-void* handle_client(void* arg) {
-    int client_fd = *(int*)arg;
-    free(arg);
-    char buffer[1024];
-    ssize_t valread;
-    
-    while((valread = read(client_fd, buffer, sizeof(buffer) - 1)) > 0) {
-        buffer[valread] = '\0';
-        printf("Client %d: %s", client_fd, buffer);
-        broadcast(buffer, client_fd);
+void *messages(void *client_arg) 
+{
+    ClientConnection *client = (ClientConnection*)client_arg;
+    int sock = client->socket_fd;
+
+    char buff[BUF_SIZE];
+    while (true) 
+    {
+        int bytes_r = recv(sock, buff, sizeof(buff)-1, 0);
+        if (bytes_r <= 0) break;
+
+        buff[bytes_r] = '\0';
+        std::string msg(buff);
+
+        if (msg.substr(0,5) == "/exit") break;
+
+        std::string un = "-> " + msg;
+        send_to_all_clients(un, sock);
     }
-    
-    printf("Client %d disconnected\n", client_fd);
-    remove_client(client_fd);
-    close(client_fd);
-    return NULL;
+
+    close(sock);
+    unregister_client(sock);
+    pthread_exit(nullptr);
 }
 
-int main() {
-    int server_fd, new_socket;
-    struct sockaddr_in address;
-    int opt = 1;
-    socklen_t addrlen = sizeof(address);
-    
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("socket failed");
-        exit(EXIT_FAILURE);
+int main() 
+{
+    int l_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (l_socket < 0) { 
+        perror("Failed to create socket"); 
+        return 1; 
+    }
+
+    sockaddr_in server_address;
+    server_address.sin_family = AF_INET;
+    server_address.sin_port = htons(PORT);
+    server_address.sin_addr.s_addr = INADDR_ANY;
+
+    if (bind(l_socket, (sockaddr*)&server_address, sizeof(server_address)) < 0) { 
+        perror("Failed to bind socket"); 
+        return 1; 
     }
     
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, 
-                   &opt, sizeof(opt))) {
-        perror("setsockopt");
-        exit(EXIT_FAILURE);
+    if (listen(l_socket, 10) < 0) { 
+        perror("Failed to listen"); 
+        return 1; 
     }
-    
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(PORT);
-    
-    if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
-        perror("bind failed");
-        exit(EXIT_FAILURE);
+
+    std::cout << "Server launched on port " << PORT << std::endl;
+
+    while (true) 
+    {
+        sockaddr_in client_addr;
+        socklen_t len = sizeof(client_addr);
+        int client_sock = accept(l_socket, (sockaddr*)&client_addr, &len);
+        if (client_sock < 0) continue;
+
+        ClientConnection *new_client = new ClientConnection{client_sock};
+        register_new_client(new_client);
+
+        pthread_t tid;
+        pthread_create(&tid, nullptr, messages, new_client);
+        pthread_detach(tid);
     }
-    
-    if (listen(server_fd, 10) < 0) {
-        perror("listen");
-        exit(EXIT_FAILURE);
-    }
-    
-    printf("Server listening on port %d\n", PORT);
-    
-    while(1) {
-        if ((new_socket = accept(server_fd, (struct sockaddr*)&address, &addrlen)) < 0) {
-            perror("accept");
-            continue;
-        }
-        
-        pthread_mutex_lock(&clients_mutex);
-        if(client_count < MAX_CLIENTS) {
-            clients[client_count++] = new_socket;
-            pthread_mutex_unlock(&clients_mutex);
-            
-            printf("New client connected: %d\n", new_socket);
-            
-            int* client_fd = (int*)malloc(sizeof(int));
-            *client_fd = new_socket;
-            pthread_t tid;
-            pthread_create(&tid, NULL, handle_client, client_fd);
-            pthread_detach(tid);
-        } else {
-            pthread_mutex_unlock(&clients_mutex);
-            close(new_socket);
-        }
-    }
-    
-    close(server_fd);
+
+    close(l_socket);
     return 0;
 }
