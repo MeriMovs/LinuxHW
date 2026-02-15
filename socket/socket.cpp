@@ -1,4 +1,4 @@
-#include "Socket.hpp"
+#include "socket.hpp"
 #include <sys/socket.h>
 #include <unistd.h>
 #include <stdexcept>
@@ -80,5 +80,20 @@ ssize_t Socket::send(std::string_view data) {
     }
     return sent;
 }
+
+void Socket::connect(const std::string& ip, int port) {
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+
+    if (inet_pton(AF_INET, ip.c_str(), &addr.sin_addr) <= 0) {
+        throw std::runtime_error("Invalid IP");
+    }
+
+    if (::connect(fd_, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
+        throw std::runtime_error("Failed to connect");
+    }
+}
+
 
 }; // namespace SimpleNet

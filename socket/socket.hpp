@@ -23,6 +23,8 @@ public:
 
     Socket accept();
 
+    void connect(const std::string& ip, int port);
+
     std::vector<char> receive(size_t max_size = 4096);
     ssize_t send(std::string_view msg);
 
